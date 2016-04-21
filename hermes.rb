@@ -50,6 +50,11 @@ class Hermes < Sinatra::Base
     end
   end
 
+  # inded all users
+  get '/users' do
+    User.select(:id, :username).to_json
+  end
+
   # index all feeds
   get '/feeds' do
     Feed.all.to_json
@@ -75,16 +80,6 @@ class Hermes < Sinatra::Base
     feed = Feed.find_by(id: params[:id]) || return_error('Record not found', 404)
     feed.to_json
   end
-
-  # get '/channels/:id' do |id|
-  #   Channel[id].inspect
-  # end
-
-  # # create new channel and provide details
-  # # data: { name: 'fpir_whitelists' }
-  # post '/channels' do
-    
-  # end
 
   # get '/channels/:id/subscriptions' do |id|
   #   Channel[id].subscriptions.inspect

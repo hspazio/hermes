@@ -34,6 +34,24 @@ class HermesTest < MiniTest::Test
     end
   end
 
+  context 'GET /users' do
+    setup do
+      10.times { create(:user) }
+    end
+   
+    should 'list all users' do
+      get '/users'
+
+      assert_equal 200, last_response.status
+      JSON.parse(last_response.body).each do |user|
+        assert_match(/^user/, user['username'])
+        assert_operator 0, :<, user['id']
+        assert !user['password'].present?
+        assert !user['password_digest'].present?
+      end 
+    end
+  end
+
   context 'GET /feeds' do
   	should 'list available feeds' do
   	  create(:feed)	
@@ -45,7 +63,9 @@ class HermesTest < MiniTest::Test
         assert !feed['created_at'].nil?
       end
   	end
+  end
 
+  context 'GET /feeds/:id' do
   	should 'show a valid feed by id' do
   	  feed = create(:feed)
       get "/feeds/#{feed.id}"
@@ -59,5 +79,18 @@ class HermesTest < MiniTest::Test
       assert_equal 404, last_response.status
       assert_equal 'Record not found', JSON.parse(last_response.body)['error']
   	end
+  end
+
+  context 'POST /feeds' do
+    should 'create a new feed' do
+      post '/feeds', { name: 'test_feed' }
+
+      assert_equal 201, last_response.status
+      result = JSON.parse(last_response.body)
+      assert_equal 'test_feed', result['name']
+      assert result['id'].present?
+      assert result['created_at'].present?
+      assert result['updated_at'].present?
+    end
   end
 end
