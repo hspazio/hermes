@@ -1,7 +1,5 @@
-# hermes
-hermes
-
-`GET /users`
+# Hermes
+Simple Publish-Subscribe Hub
 
 ### Feeds
 
@@ -22,6 +20,10 @@ hermes
 * `GET /feeds/:feed_id/messages` - list all messages posted to a feed
 * `POST /feeds/:feed_id/messages` - post a message to a feed
 * `GET /messages/:id` - show message
+
+### Users
+* `GET /users` - list all users
+* `GET /users/:id` - show user
 
 ### Authentication
 * `POST /login` 
