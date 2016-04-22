@@ -12,7 +12,11 @@ class FeedTest < Minitest::Test
       feed = build(:feed, name: nil)
 
       assert !feed.valid?
-      assert !feed.errors[:name].empty?
+      assert feed.errors[:name].any?
+
+      feed = build(:feed, name: 'f')
+      assert !feed.valid?
+      assert feed.errors[:name].any?
     end
 
     should 'have timestap fields' do

@@ -4,6 +4,5 @@ class Subscription < ActiveRecord::Base
 
   validates_presence_of :user
   validates_presence_of :feed
-  # TODO: use a proper url validation
-  # validates :callback_url
+  validates :callback_url, presence: true # TODO: use a proper url validation
 end

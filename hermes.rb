@@ -1,36 +1,32 @@
 Bundler.require :default
-
-class Authentication < Sinatra::Base
-  enable :sessions
-
-  post('/login') do
-    if params['name'] == 'admin' && params['password'] == 'admin'
-      session['user_name'] = params['name']
-    else
-      redirect '/login'
-    end
-  end
-end
+Dir[File.dirname(__FILE__) + '/models/**/*.rb'].each{ |f| require f }
 
 class Hermes < Sinatra::Base
-  # use Authentication
-
-  Dir[File.dirname(__FILE__) + '/models/**/*.rb'].each{ |f| require f }
-
-  # TODO: move to a setup script
-  # User.new(username: 'admin', password: 'Secure123!', password_confirmation: 'Secure123!').save
-
-  # error 404 do
-  #   halt 404, { error: 'Record not found' }.to_json
-  # end
+  configure do
+    enable :sessions
+  end
 
   helpers do
+    def current_user
+      User.find(session['user_id'])
+    end
+
+    def authenticate!
+      return_error('Unauthorized access. Please login', 401) unless session['user_id']
+    end
+
     def return_error(message, status=400)
       halt status, { error: message }.to_json
     end
+
+    def return_not_found
+      return_error('Record not found', 404)
+    end
   end
 
-  enable :sessions
+  before do
+    authenticate! unless request.path_info == '/login'
+  end
 
   post '/login' do
     if params['username'] && params['password']
@@ -50,9 +46,14 @@ class Hermes < Sinatra::Base
     end
   end
 
-  # inded all users
+  # index all users
   get '/users' do
     User.select(:id, :username).to_json
+  end
+
+  get '/users/:id' do
+    user = User.select(:id, :username).find_by(id: params[:id]) || return_not_found
+    user.to_json
   end
 
   # index all feeds
@@ -63,25 +64,60 @@ class Hermes < Sinatra::Base
   # create new feed
   # data >> { name: "..." }
   post '/feeds' do
-    if params['name']
-      feed = Feed.new({ name: params['name'] })
-      feed.save
-      body(feed.to_json)
-      status(201)
+    return_error('Parameter \'name\' must be provided') unless params['name']
+      
+    feed = Feed.new({ name: params['name'] })
+    if feed.save
+      body feed.to_json
+      status 201 
     else
-      # body({ error: 'Name must be provided' }.to_json)
-      # status(400)
-      return_error('Name must be provided')
+      return_error(feed.errors.full_messages.join("\n"))
     end
   end
 
   # show feed
-  get '/feeds/:id' do |id|
-    feed = Feed.find_by(id: params[:id]) || return_error('Record not found', 404)
+  get '/feeds/:id' do 
+    feed = Feed.find_by(id: params[:id]) || return_not_found
     feed.to_json
   end
 
-  # get '/channels/:id/subscriptions' do |id|
-  #   Channel[id].subscriptions.inspect
-  # end
+  # show all subscriptions to a feed
+  get '/feeds/:feed_id/subscriptions' do
+    feed = Feed.find_by(id: params[:feed_id]) || return_not_found
+    feed.subscriptions.to_json
+  end
+
+  # subscribe to a feed
+  post '/feeds/:feed_id/subscriptions' do
+    feed = Feed.find_by(id: params[:feed_id]) || return_not_found
+    subscription = feed.subscriptions.build(user: current_user, callback_url: params[:callback_url])
+
+    if subscription.save
+      body(subscription.to_json)
+      status 201
+    else
+      return_error(subscription.errors.full_messages.to_sentence)
+    end
+  end
+
+  # show subscription
+  get '/subscriptions/:id' do
+    subscription = Subscription.find_by(id: params[:id]) || return_not_found
+    subscription.to_json
+  end
+
+  # unsubscribe from a feed
+  delete '/subscriptions/:id' do
+    subscription = Subscription.find_by(id: params[:id]) || return_not_found
+    if subscription.user == current_user
+      if subscription.destroy
+        status 204
+      else
+        return_error('Unable to complete request', 500)
+      end
+    else
+      return_error('Only the subscriber can perform this action', 403)
+    end
+  end
+
 end
