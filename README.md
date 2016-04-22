@@ -5,12 +5,18 @@ Simple Publish-Subscribe Hub
 
 * `GET /feeds` - list all feeds
 * `POST /feeds` - create new feed
+```ruby 
+{ name: 'my_awesome_topic' } 
+```
 * `GET /feeds/:id` - show feed
 
 ### Subscriptions
 
 * `GET /feeds/:feed_id/subscriptions` - list all subscriptions to a feed
 * `POST /feeds/:feed_id/subscriptions` - subscribe to a feed
+```ruby
+{ callback_url: 'https://myhost/callback/here' }
+```
 * `GET /subscriptions/:id` - show subscription
 * `DELETE /subscriptions/:id` - unsubscribe from a feed
 * `PATCH /subscriptions/:id` - update subscription (e.g. update :callback_url) 
