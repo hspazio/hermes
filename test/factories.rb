@@ -13,6 +13,7 @@ FactoryGirl.define do
 
   factory :feed do |f|
     f.sequence(:name) { |n| "feed#{n}" }
+    f.association :user
   end
 
   factory :subscription do |f|

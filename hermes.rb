@@ -66,7 +66,7 @@ class Hermes < Sinatra::Base
   post '/feeds' do
     return_error('Parameter \'name\' must be provided') unless params['name']
       
-    feed = Feed.new({ name: params['name'] })
+    feed = Feed.new({ name: params['name'], user: current_user })
     if feed.save
       body feed.to_json
       status 201 

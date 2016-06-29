@@ -8,6 +8,12 @@ class FeedTest < Minitest::Test
       assert !feed.created_at.nil?
     end
 
+    should 'belong to a user' do
+      feed = build(:feed)
+      assert feed.valid?
+      assert feed.user
+    end
+
     should 'have a valid name' do
       feed = build(:feed, name: nil)
 

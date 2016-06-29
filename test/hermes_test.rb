@@ -111,7 +111,11 @@ class HermesTest < MiniTest::Test
         get "/feeds/#{feed.id}"
 
         assert last_response.ok?
-        assert_equal feed.id, JSON.parse(last_response.body)['id']
+        data = JSON.parse(last_response.body)
+        
+        assert_equal feed.id, data['id']
+        assert_equal feed.name, data['name']
+        assert_equal feed.user_id, data['user_id']
     	end
 
     	should 'return not_found for invalid feed id' do
@@ -128,6 +132,7 @@ class HermesTest < MiniTest::Test
         result = JSON.parse(last_response.body)
         assert_equal 'test_feed', result['name']
         assert result['id'].present?
+        assert_equal @user.id, result['user_id']
         assert result['created_at'].present?
         assert result['updated_at'].present?
       end
