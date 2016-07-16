@@ -9,6 +9,7 @@ gem 'rake'
 gem 'json'
 gem 'logger'
 gem 'bcrypt'
+gem 'sidekiq'
 
 group :test do
   gem 'rack-test'

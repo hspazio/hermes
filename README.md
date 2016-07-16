@@ -38,6 +38,7 @@ Simple Publish-Subscribe Hub
 ```
 
 ## TODO
+* Remove User from Message. User association for message is redundat because the User can only publish messages to the owned feeds.
 
 Temporary store messages for a period of time and allow fetching them if client was down and could not receive the callback
 * `GET /feeds/:feed_id/messages?from=20160326123244&to=20160417122032`

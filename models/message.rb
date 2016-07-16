@@ -9,9 +9,8 @@ end
 
 class Message < ActiveRecord::Base
   belongs_to :feed
-  belongs_to :user
+  belongs_to :user    # TODO: delete
 
-  validates_presence_of :user
   validates_presence_of :feed
   validates :data, presence: true, json: true
 end

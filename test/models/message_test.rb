@@ -15,11 +15,6 @@ class MessageTest < Minitest::Test
       assert_equal 'can\'t be blank', message.errors[:feed].first
     end
 
-    should 'not have nil user' do
-      message = create(:message, user: nil)
-      assert_equal 'can\'t be blank', message.errors[:user].first
-    end
-
     should 'not have empty data' do
       message = create(:message, data: nil)
       assert_equal 'can\'t be blank', message.errors[:data].first

@@ -4,6 +4,11 @@ Dir[File.dirname(__FILE__) + '/models/**/*.rb'].each{ |f| require f }
 class Hermes < Sinatra::Base
   configure do
     enable :sessions
+    mime_type :json, 'application/json'
+  end
+
+  configure :production, :development do
+    enable :logging
   end
 
   helpers do
@@ -26,6 +31,19 @@ class Hermes < Sinatra::Base
 
   before do
     authenticate! unless request.path_info == '/login'
+    content_type :json
+  end
+
+  before '/feeds/:feed_id*' do
+    @feed = Feed.find_by(id: params[:feed_id]) || return_not_found
+  end
+
+  before '/subscriptions/:id*' do
+    @subscription = Subscription.find_by(id: params[:id]) || return_not_found
+ 
+    unless @subscription.user == current_user
+      return_error('Only the subscriber can perform this action', 403)
+    end
   end
 
   post '/login' do
@@ -76,21 +94,18 @@ class Hermes < Sinatra::Base
   end
 
   # show feed
-  get '/feeds/:id' do 
-    feed = Feed.find_by(id: params[:id]) || return_not_found
-    feed.to_json
+  get '/feeds/:feed_id' do 
+    @feed.to_json
   end
 
   # show all subscriptions to a feed
   get '/feeds/:feed_id/subscriptions' do
-    feed = Feed.find_by(id: params[:feed_id]) || return_not_found
-    feed.subscriptions.to_json
+    @feed.subscriptions.to_json
   end
 
   # subscribe to a feed
   post '/feeds/:feed_id/subscriptions' do
-    feed = Feed.find_by(id: params[:feed_id]) || return_not_found
-    subscription = feed.subscriptions.build(user: current_user, callback_url: params[:callback_url])
+    subscription = @feed.subscriptions.build(user: current_user, callback_url: params[:callback_url])
 
     if subscription.save
       body(subscription.to_json)
@@ -102,22 +117,39 @@ class Hermes < Sinatra::Base
 
   # show subscription
   get '/subscriptions/:id' do
-    subscription = Subscription.find_by(id: params[:id]) || return_not_found
-    subscription.to_json
+    @subscription.to_json
   end
 
   # unsubscribe from a feed
   delete '/subscriptions/:id' do
-    subscription = Subscription.find_by(id: params[:id]) || return_not_found
-    if subscription.user == current_user
-      if subscription.destroy
-        status 204
-      else
-        return_error('Unable to complete request', 500)
-      end
+    if @subscription.destroy
+      status 204
     else
-      return_error('Only the subscriber can perform this action', 403)
+      return_error('Unable to complete request', 500)
     end
   end
 
+  # update callback url
+  patch '/subscriptions/:id' do
+    if @subscription.update(callback_url: params[:callback_url])
+      body(@subscription.to_json)
+      status 200
+    else
+      return_error(@subscription.errors.full_messages.to_sentence)
+    end
+  end
+
+  # publish message
+  post '/feeds/:feed_id/messages' do
+    return_error('Only the owner of the feed is authorized to publish messages', 403) unless @feed.user == current_user
+    return_error("Missing required param 'data'", 400) unless params[:data]
+
+    message = @feed.messages.build(data: params[:data].to_json)
+    if message.save
+      body(message.to_json)
+      status 201
+    else
+      return_error(message.errors.full_messages.to_sentence)
+    end
+  end
 end

@@ -105,14 +105,14 @@ class HermesTest < MiniTest::Test
     	end
     end
 
-    context 'GET /feeds/:id' do
+    context 'GET /feeds/:feed_id' do
     	should 'show a valid feed by id' do
     	  feed = create(:feed)
         get "/feeds/#{feed.id}"
 
         assert last_response.ok?
         data = JSON.parse(last_response.body)
-        
+
         assert_equal feed.id, data['id']
         assert_equal feed.name, data['name']
         assert_equal feed.user_id, data['user_id']
@@ -221,7 +221,7 @@ class HermesTest < MiniTest::Test
 
     context 'GET /subscriptions/:id' do
       should 'show a subscription' do
-        subscription = create(:subscription)
+        subscription = create(:subscription, user: @user)
         get "/subscriptions/#{subscription.id}"
 
         assert_equal 200, last_response.status
@@ -234,6 +234,14 @@ class HermesTest < MiniTest::Test
       should 'return not found if subscription does not exist' do
         get "/subscriptions/999999"
         assert_not_found
+      end
+
+      should 'return forbidden error if user is not the owner' do
+        subscription = create(:subscription)
+        get "/subscriptions/#{subscription.id}"
+
+        assert_equal 403, last_response.status
+        assert_equal 'Only the subscriber can perform this action', JSON.parse(last_response.body)['error']
       end
     end
 
@@ -259,13 +267,89 @@ class HermesTest < MiniTest::Test
         assert_not_found
       end
     end
+
+    context 'PATCH /subscriptions/:id' do
+      should 'update the callback url for a subscription if current_user is the owner' do
+        subscription = create(:subscription, user: @user)
+        new_callback_url = 'http://mynewcallback.com'
+        patch "/subscriptions/#{subscription.id}", callback_url: new_callback_url
+
+        assert_equal 200, last_response.status
+        result = JSON.parse(last_response.body)
+
+        assert_equal new_callback_url, result['callback_url']
+      end
+
+      should 'forbid action if current_user is not the owner' do
+        subscription = create(:subscription)
+        new_callback_url = 'http://mynewcallback.com'
+        patch "/subscriptions/#{subscription.id}", callback_url: new_callback_url
+
+        assert_equal 403, last_response.status
+        assert_equal 'Only the subscriber can perform this action', JSON.parse(last_response.body)['error']  
+      end
+
+      should 'return error when providing invalid callback url' do
+        subscription = create(:subscription, user: @user)
+        new_callback_url = 'invalid.callback.com'
+        patch "/subscriptions/#{subscription.id}", callback_url: new_callback_url
+
+        assert_equal 400, last_response.status
+        assert_equal 'Callback url is not a valid url', JSON.parse(last_response.body)['error']  
+      end
+
+      should 'return not found if subscription does not exist' do
+        patch "/subscriptions/999999", callback_url: 'http://mynewcallback.com'
+        assert_not_found
+      end
+    end
+
+    context 'POST /feeds/:feed_id/messages' do
+      should 'publish a message in the specified feed' do
+        feed = create(:feed, user: @user)
+        expected_data = { name: 'fabio', surname: 'pitino' }
+        post "/feeds/#{feed.id}/messages", data: expected_data
+
+        assert_equal 201, last_response.status
+        response_body = JSON.parse(last_response.body)
+        assert_equal expected_data.to_json, response_body['data']
+        assert_equal feed.id, response_body['feed_id']
+      end
+
+      should 'not allow user to publish a message to another user\'s feed' do
+        feed = create(:feed, user_id: @user.id + 1)
+        post "/feeds/#{feed.id}/messages", data: { name: 'fabio' }
+        error_message = 'Only the owner of the feed is authorized to publish messages'
+
+        assert_equal 403, last_response.status
+        assert_equal error_message, JSON.parse(last_response.body)['error'] 
+      end
+
+      should 'return error if no data parameter provided' do
+        feed = create(:feed, user: @user)
+        post "/feeds/#{feed.id}/messages"
+
+        assert_equal 400, last_response.status
+        assert_equal "Missing required param 'data'", JSON.parse(last_response.body)['error']
+      end
+
+      should 'return error if no data content provided' do
+        feed = create(:feed, user: @user)
+        post "/feeds/#{feed.id}/messages", data: {}
+
+        assert_equal 400, last_response.status
+        assert_equal "Missing required param 'data'", JSON.parse(last_response.body)['error']
+
+        post "/feeds/#{feed.id}/messages", data: ''
+
+        assert_equal 400, last_response.status
+        assert_equal "Data is not a valid json", JSON.parse(last_response.body)['error']
+      end
+
+      should 'return not found if feed does not exist' do
+        post "/feeds/99999/message", data: { name: 'fabio' }
+        assert_not_found
+      end
+    end
   end
 end
-
-
-
-
-
-
-
-
