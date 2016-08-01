@@ -20,7 +20,8 @@ class HermesTest < MiniTest::Test
         post '/login', username: user.username, password: user.password
 
         assert_equal 201, last_response.status 
-        assert_equal '', last_response.body
+        resp = JSON.parse(last_response.body)
+        assert_match /[a-f0-9]{32}/i, resp['token']
       end
 
       should 'return not_found if username does not exist' do
@@ -41,9 +42,20 @@ class HermesTest < MiniTest::Test
     end
 
     context 'GET /users' do
-      should 'return unauthorized error' do
+      should 'return unauthorized error if not authenticated' do
         get '/users'
 
+        assert_equal 401, last_response.status
+        assert_equal 'Unauthorized access. Please login', JSON.parse(last_response.body)['error']
+      end
+
+      should 'returns list of users if access token provided' do
+        get '/users', {}, { 'Authorization' => 'Token token=a47a8e54b11c4de5a4a351734c80a14b' }
+        assert_equal 200, last_response.status
+      end
+
+      should 'returns unauthorized error if wrong access token provided' do
+        get '/users', {}, { 'Authorization' => 'Token token=a47a8e54b1' }
         assert_equal 401, last_response.status
         assert_equal 'Unauthorized access. Please login', JSON.parse(last_response.body)['error']
       end
@@ -52,8 +64,9 @@ class HermesTest < MiniTest::Test
 
   context 'User logged in' do
     setup do
-      @user = create(:user)
-      post '/login', username: @user.username, password: @user.password 
+      @user = User.find_by(username: 'fabio_pitino')
+      @headers = { 'Authorization' => "Token token=#{@user.token}", 
+                   'Content-Type' => 'application/json' }
     end
 
     context 'GET /users' do
@@ -62,11 +75,11 @@ class HermesTest < MiniTest::Test
       end
      
       should 'list all users' do
-        get '/users'
+        get '/users', {}, @headers
 
         assert_equal 200, last_response.status
         JSON.parse(last_response.body).each do |user|
-          assert_match(/^user/, user['username'])
+          assert user['username']
           assert_operator 0, :<, user['id']
           assert !user['password'].present?
           assert !user['password_digest'].present?
@@ -76,18 +89,18 @@ class HermesTest < MiniTest::Test
 
     context 'GET /users/:id' do
       should 'show user' do
-        get "/users/#{@user.id}"
+        get "/users/#{@user.id}", {}, @headers
 
         assert_equal 200, last_response.status
         result = JSON.parse(last_response.body)
-        assert_match(/^user/, result['username'])
+        assert_match(/^fabio_pitino/, result['username'])
         assert_operator 0, :<, result['id']
         assert !result['password'].present?
         assert !result['password_digest'].present?
       end
 
       should 'return not_found if user does not exist' do
-        get '/users/999999'
+        get '/users/999999', {}, @headers
         assert_not_found
       end
     end
@@ -95,7 +108,7 @@ class HermesTest < MiniTest::Test
     context 'GET /feeds' do
     	should 'list all feeds' do
     	  create(:feed)	
-        get '/feeds'
+        get '/feeds', {}, @headers
 
         assert last_response.ok?
         JSON.parse(last_response.body).each do |feed|
@@ -108,7 +121,7 @@ class HermesTest < MiniTest::Test
     context 'GET /feeds/:feed_id' do
     	should 'show a valid feed by id' do
     	  feed = create(:feed)
-        get "/feeds/#{feed.id}"
+        get "/feeds/#{feed.id}", {}, @headers
 
         assert last_response.ok?
         data = JSON.parse(last_response.body)
@@ -119,14 +132,14 @@ class HermesTest < MiniTest::Test
     	end
 
     	should 'return not_found for invalid feed id' do
-        get '/feeds/999999'
+        get '/feeds/999999', {}, @headers
         assert_not_found
     	end
     end
 
     context 'POST /feeds' do
       should 'create a new feed' do
-        post '/feeds', { name: 'test_feed' }
+        post '/feeds', { name: 'test_feed' }, @headers
 
         assert_equal 201, last_response.status
         result = JSON.parse(last_response.body)
@@ -138,7 +151,7 @@ class HermesTest < MiniTest::Test
       end
 
       should 'not create a feed if name is not provided' do
-        post '/feeds', {}
+        post '/feeds', {}, @headers
 
         assert_equal 400, last_response.status
         result = JSON.parse(last_response.body)
@@ -146,7 +159,7 @@ class HermesTest < MiniTest::Test
       end
 
       should 'not create a feed if name is too short' do
-        post '/feeds', { name: 'f' }
+        post '/feeds', { name: 'f' }, @headers
 
         assert_equal 400, last_response.status
         result = JSON.parse(last_response.body)
@@ -162,7 +175,7 @@ class HermesTest < MiniTest::Test
       should 'list all subscriptions for a feed' do  
         5.times { create(:subscription, feed: @feed) }
 
-        get "/feeds/#{@feed.id}/subscriptions"
+        get "/feeds/#{@feed.id}/subscriptions", {}, @headers
 
         assert_equal 200, last_response.status
         results = JSON.parse(last_response.body)
@@ -177,14 +190,14 @@ class HermesTest < MiniTest::Test
       end
 
       should 'return an empty array if there are no subscriptions' do
-        get "/feeds/#{@feed.id}/subscriptions"
+        get "/feeds/#{@feed.id}/subscriptions", {}, @headers
 
         assert_equal 200, last_response.status
         assert JSON.parse(last_response.body).empty?
       end
 
       should 'return not_found if feed does not exist' do
-        get "/feeds/#{@feed.id + 1}/subscriptions"
+        get "/feeds/#{@feed.id + 1}/subscriptions", {}, @headers
 
         assert_equal 404, last_response.status
       end
@@ -197,7 +210,7 @@ class HermesTest < MiniTest::Test
 
       should 'successfully subscribe to a feed' do
         callback_url = 'https://mysite.com/callbacks'
-        post "/feeds/#{@feed.id}/subscriptions", { callback_url: callback_url }
+        post "/feeds/#{@feed.id}/subscriptions", { callback_url: callback_url }, @headers
 
         assert_equal 201, last_response.status
         result = JSON.parse(last_response.body)
@@ -207,12 +220,12 @@ class HermesTest < MiniTest::Test
       end
 
       should 'not subscribe to a feed without callback_url' do
-        post "/feeds/#{@feed.id}/subscriptions", {}
+        post "/feeds/#{@feed.id}/subscriptions", {}, @headers
 
         assert_equal 400, last_response.status
         assert_equal "Callback url can't be blank", JSON.parse(last_response.body)['error']
 
-        post "/feeds/#{@feed.id}/subscriptions", { callback_url: '' }
+        post "/feeds/#{@feed.id}/subscriptions", { callback_url: '' }, @headers
 
         assert_equal 400, last_response.status
         assert_equal "Callback url can't be blank", JSON.parse(last_response.body)['error']
@@ -222,7 +235,7 @@ class HermesTest < MiniTest::Test
     context 'GET /subscriptions/:id' do
       should 'show a subscription' do
         subscription = create(:subscription, user: @user)
-        get "/subscriptions/#{subscription.id}"
+        get "/subscriptions/#{subscription.id}", {}, @headers
 
         assert_equal 200, last_response.status
         result = JSON.parse(last_response.body)
@@ -232,13 +245,13 @@ class HermesTest < MiniTest::Test
       end
 
       should 'return not found if subscription does not exist' do
-        get "/subscriptions/999999"
+        get "/subscriptions/999999", {}, @headers
         assert_not_found
       end
 
       should 'return forbidden error if user is not the owner' do
         subscription = create(:subscription)
-        get "/subscriptions/#{subscription.id}"
+        get "/subscriptions/#{subscription.id}", {}, @headers
 
         assert_equal 403, last_response.status
         assert_equal 'Only the subscriber can perform this action', JSON.parse(last_response.body)['error']
@@ -248,7 +261,7 @@ class HermesTest < MiniTest::Test
     context 'DELETE /subscriptions/:id' do
       should 'delete a subscription if current_user is the owner' do
         subscription = create(:subscription, user: @user)
-        delete "/subscriptions/#{subscription.id}"
+        delete "/subscriptions/#{subscription.id}", {}, @headers
 
         assert_equal 204, last_response.status
         assert last_response.body.empty? 
@@ -256,14 +269,14 @@ class HermesTest < MiniTest::Test
 
       should 'forbid action if current_user is not the owner' do
         subscription = create(:subscription)
-        delete "/subscriptions/#{subscription.id}"
+        delete "/subscriptions/#{subscription.id}", {}, @headers
 
         assert_equal 403, last_response.status
         assert_equal 'Only the subscriber can perform this action', JSON.parse(last_response.body)['error']  
       end
 
       should 'return not found if subscription does not exist' do
-        delete "/subscriptions/999999"
+        delete "/subscriptions/999999", {}, @headers
         assert_not_found
       end
     end
@@ -272,7 +285,7 @@ class HermesTest < MiniTest::Test
       should 'update the callback url for a subscription if current_user is the owner' do
         subscription = create(:subscription, user: @user)
         new_callback_url = 'http://mynewcallback.com'
-        patch "/subscriptions/#{subscription.id}", callback_url: new_callback_url
+        patch "/subscriptions/#{subscription.id}", { callback_url: new_callback_url }, @headers
 
         assert_equal 200, last_response.status
         result = JSON.parse(last_response.body)
@@ -283,7 +296,7 @@ class HermesTest < MiniTest::Test
       should 'forbid action if current_user is not the owner' do
         subscription = create(:subscription)
         new_callback_url = 'http://mynewcallback.com'
-        patch "/subscriptions/#{subscription.id}", callback_url: new_callback_url
+        patch "/subscriptions/#{subscription.id}", { callback_url: new_callback_url }, @headers
 
         assert_equal 403, last_response.status
         assert_equal 'Only the subscriber can perform this action', JSON.parse(last_response.body)['error']  
@@ -292,14 +305,14 @@ class HermesTest < MiniTest::Test
       should 'return error when providing invalid callback url' do
         subscription = create(:subscription, user: @user)
         new_callback_url = 'invalid.callback.com'
-        patch "/subscriptions/#{subscription.id}", callback_url: new_callback_url
+        patch "/subscriptions/#{subscription.id}", { callback_url: new_callback_url }, @headers
 
         assert_equal 400, last_response.status
         assert_equal 'Callback url is not a valid url', JSON.parse(last_response.body)['error']  
       end
 
       should 'return not found if subscription does not exist' do
-        patch "/subscriptions/999999", callback_url: 'http://mynewcallback.com'
+        patch "/subscriptions/999999", { callback_url: 'http://mynewcallback.com' }, @headers
         assert_not_found
       end
     end
@@ -308,7 +321,7 @@ class HermesTest < MiniTest::Test
       should 'publish a message in the specified feed' do
         feed = create(:feed, user: @user)
         expected_data = { name: 'fabio', surname: 'pitino' }
-        post "/feeds/#{feed.id}/messages", data: expected_data
+        post "/feeds/#{feed.id}/messages", { data: expected_data }, @headers
 
         assert_equal 201, last_response.status
         response_body = JSON.parse(last_response.body)
@@ -321,7 +334,7 @@ class HermesTest < MiniTest::Test
         subscription = create(:subscription, feed: feed)
         expected_data = { name: 'fabio', surname: 'pitino' }
 
-        post "/feeds/#{feed.id}/messages", data: expected_data
+        post "/feeds/#{feed.id}/messages", { data: expected_data }, @headers
 
         assert Notifier.jobs.size > 0
         assert_equal feed.subscriptions.count, Notifier.jobs.size
@@ -330,7 +343,7 @@ class HermesTest < MiniTest::Test
 
       should 'not allow user to publish a message to another user\'s feed' do
         feed = create(:feed, user_id: @user.id + 1)
-        post "/feeds/#{feed.id}/messages", data: { name: 'fabio' }
+        post "/feeds/#{feed.id}/messages", { data: { name: 'fabio' } }, @headers
         error_message = 'Only the owner of the feed is authorized to publish messages'
 
         assert_equal 403, last_response.status
@@ -339,7 +352,7 @@ class HermesTest < MiniTest::Test
 
       should 'return error if no data parameter provided' do
         feed = create(:feed, user: @user)
-        post "/feeds/#{feed.id}/messages"
+        post "/feeds/#{feed.id}/messages", {}, @headers
 
         assert_equal 400, last_response.status
         assert_equal "Missing required param 'data'", JSON.parse(last_response.body)['error']
@@ -347,19 +360,19 @@ class HermesTest < MiniTest::Test
 
       should 'return error if no data content provided' do
         feed = create(:feed, user: @user)
-        post "/feeds/#{feed.id}/messages", data: {}
+        post "/feeds/#{feed.id}/messages", { data: {} }, @headers
 
         assert_equal 400, last_response.status
         assert_equal "Missing required param 'data'", JSON.parse(last_response.body)['error']
 
-        post "/feeds/#{feed.id}/messages", data: ''
+        post "/feeds/#{feed.id}/messages", { data: '' }, @headers
 
         assert_equal 400, last_response.status
         assert_equal "Data is not a valid json", JSON.parse(last_response.body)['error']
       end
 
       should 'return not found if feed does not exist' do
-        post "/feeds/99999/message", data: { name: 'fabio' }
+        post "/feeds/99999/message", { data: { name: 'fabio' } }, @headers
         assert_not_found
       end
     end

@@ -19,6 +19,12 @@ class Hermes < Sinatra::Base
     end
 
     def authenticate!
+      authorization = env['Authorization']
+      if authorization && authorization.match(/Token token=(.*)/)
+        if (user = User.find_by(token: $1))
+          session['user_id'] = user.id
+        end 
+      end
       return_error('Unauthorized access. Please login', 401) unless session['user_id']
     end
 
@@ -65,7 +71,9 @@ class Hermes < Sinatra::Base
       user = User.where(username: params['username']).first
       if user
         if user.authenticate(params['password'])
-          session['user_id'] = user.id
+          # session['user_id'] = user.id
+          user.generate_token
+          body({ token: user.token }.to_json)
           status 201
         else
           return_error('Invalid username and password combination', 422)

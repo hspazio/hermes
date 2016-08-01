@@ -1,5 +1,3 @@
-require 'rest-client'
-
 class HermesClient
   attr_reader :host
 

@@ -8,4 +8,8 @@ class User < ActiveRecord::Base
     cost = ActiveModel::SecurePassword.min_cost ? BCrypt::Engine::MIN_COST : BCrypt::Engine.cost
     BCrypt::Password.create(string, cost: cost)
   end
+
+  def generate_token
+    update(token: SecureRandom.hex(16))
+  end
 end

@@ -25,5 +25,12 @@ class UserTest < Minitest::Test
       user2 = create(:user, username: 'my_name')
       assert_equal 'has already been taken', user2.errors[:username].first
     end
+
+    should 'generate token' do
+      user = build(:user)
+      user.generate_token
+
+      assert_match(/[a-f0-9]{32}/i, user.token)
+    end
   end
 end
