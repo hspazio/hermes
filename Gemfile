@@ -10,6 +10,8 @@ gem 'json'
 gem 'logger'
 gem 'bcrypt'
 gem 'sidekiq'
+gem 'fakeweb', '~> 1.3'
+gem 'rest-client'
 
 group :test do
   gem 'rack-test'

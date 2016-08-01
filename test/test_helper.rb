@@ -6,6 +6,9 @@ Bundler.require :test
 require 'json'
 require 'minitest/autorun'
 require 'factories'
+require 'sidekiq/api'
+require 'sidekiq/testing'
+Sidekiq::Testing.fake!
 
 require_relative '../hermes'
 

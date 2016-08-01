@@ -316,6 +316,18 @@ class HermesTest < MiniTest::Test
         assert_equal feed.id, response_body['feed_id']
       end
 
+      should 'enqueue notifications for subscribers when message published correctly' do
+        feed = create(:feed, user: @user)
+        subscription = create(:subscription, feed: feed)
+        expected_data = { name: 'fabio', surname: 'pitino' }
+
+        post "/feeds/#{feed.id}/messages", data: expected_data
+
+        assert Notifier.jobs.size > 0
+        assert_equal feed.subscriptions.count, Notifier.jobs.size
+        Notifier.clear
+      end
+
       should 'not allow user to publish a message to another user\'s feed' do
         feed = create(:feed, user_id: @user.id + 1)
         post "/feeds/#{feed.id}/messages", data: { name: 'fabio' }

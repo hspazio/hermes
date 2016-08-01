@@ -1,0 +1,3 @@
+user_1:
+  username: 'fabio_pitino'
+  password_digest:  <%= User.digest '1234' %>

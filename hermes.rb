@@ -1,5 +1,7 @@
+require 'bundler'
 Bundler.require :default
 Dir[File.dirname(__FILE__) + '/models/**/*.rb'].each{ |f| require f }
+Dir[File.dirname(__FILE__) + '/workers/**/*.rb'].each{ |f| require f }
 
 class Hermes < Sinatra::Base
   configure do
@@ -30,7 +32,7 @@ class Hermes < Sinatra::Base
   end
 
   before do
-    authenticate! unless request.path_info == '/login'
+    authenticate! unless ['/', '/login'].include?(request.path_info)
     content_type :json
   end
 
@@ -44,6 +46,18 @@ class Hermes < Sinatra::Base
     unless @subscription.user == current_user
       return_error('Only the subscriber can perform this action', 403)
     end
+  end
+
+  after '/feeds/:feed_id/messages' do
+    if request.post? && @feed && @message && @message.valid?
+      @feed.subscriptions.each do |subscription|
+        Notifier.perform_async(@message.data, subscription.callback_url)
+      end
+    end
+  end
+
+  get '/' do
+    "Hermes"
   end
 
   post '/login' do
@@ -144,12 +158,12 @@ class Hermes < Sinatra::Base
     return_error('Only the owner of the feed is authorized to publish messages', 403) unless @feed.user == current_user
     return_error("Missing required param 'data'", 400) unless params[:data]
 
-    message = @feed.messages.build(data: params[:data].to_json)
-    if message.save
-      body(message.to_json)
-      status 201
+    @message = @feed.messages.build(data: params[:data].to_json)
+    if @message.save
+      body @message.to_json
+      status 201 
     else
-      return_error(message.errors.full_messages.to_sentence)
+      return_error(@message.errors.full_messages.to_sentence)
     end
   end
 end
