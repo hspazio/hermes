@@ -1,6 +1,8 @@
 # Hermes
 Simple Publish-Subscribe Hub
 
+[![Code Climate](https://codeclimate.com/github/hspazio/hermes/badges/gpa.svg)](https://codeclimate.com/github/hspazio/hermes)
+
 ### Feeds
 
 * `GET /feeds` - list all feeds
