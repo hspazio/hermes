@@ -1,8 +1,6 @@
 language: ruby
 rvm:
   - 2.2
-  - jruby
-  - rbx-2
 script:
   - bundle exec rake db:drop db:create db:migrate db:fixtrues:load
   - bundle exec rake test
