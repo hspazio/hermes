@@ -19,4 +19,5 @@ group :test do
   gem 'minitest-around', require: 'minitest/around'
   gem 'shoulda-context'
   gem 'factory_girl'
+  gem "codeclimate-test-reporter", require: nil
 end
