@@ -1,5 +1,5 @@
 # Hermes
-Simple Publish-Subscribe Hub
+Simple Sinatra Publish-Subscribe Hub
 
 [![Code Climate](https://codeclimate.com/github/hspazio/hermes/badges/gpa.svg)](https://codeclimate.com/github/hspazio/hermes)
 
