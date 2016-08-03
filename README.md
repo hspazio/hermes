@@ -3,6 +3,7 @@ Simple Sinatra Publish-Subscribe Hub
 
 [![Code Climate](https://codeclimate.com/github/hspazio/hermes/badges/gpa.svg)](https://codeclimate.com/github/hspazio/hermes)
 [![Test Coverage](https://codeclimate.com/github/hspazio/hermes/badges/coverage.svg)](https://codeclimate.com/github/hspazio/hermes/coverage)
+[![Build Status](https://travis-ci.org/hspazio/hermes.svg?branch=master)](https://travis-ci.org/hspazio/hermes)
 
 ### Feeds
 
