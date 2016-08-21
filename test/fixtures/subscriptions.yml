@@ -1,0 +1,9 @@
+subscription_1:
+  user: user_2
+  feed: feed_1
+  callback_url: 'http://localhost/test/callback/1'
+
+subscription_2:
+  user: user_1
+  feed: feed_2
+  callback_url: 'http://localhost/test/callback/2'

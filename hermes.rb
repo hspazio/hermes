@@ -19,7 +19,7 @@ class Hermes < Sinatra::Base
     end
 
     def authenticate!
-      authorization = env['Authorization']
+      authorization = env['Authorization'] || env['HTTP_AUTHORIZATION']
       if authorization && authorization.match(/Token token=(.*)/)
         if (user = User.find_by(token: $1))
           session['user_id'] = user.id

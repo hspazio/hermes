@@ -2,3 +2,8 @@ user_1:
   username: 'fabio_pitino'
   password_digest:  <%= User.digest '1234' %>
   token: a47a8e54b11c4de5a4a351734c80a14b
+
+user_2:
+  username: 'hspazio'
+  password_digest: <%= User.digest '1234'%>
+  token: aaaa8e54b11c4de5a4a351734c80a14b
